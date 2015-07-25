@@ -1,0 +1,73 @@
+# Practical Machine Learning project
+
+
+
+This is [Practical Machine Learning](https://www.coursera.org/course/predmachlearn) course project report. The aim of this project is to classify how a person performed barbell fit given data from accelometers.
+
+First of all lets read the data from given files [pml-training.csv](http://kahvel.github.io/pml-project/pml-training.csv) and [pml-testing.csv](http://kahvel.github.io/pml-project/pml-testing.csv) while replacing all occurences of "#DIV/0!" with NA.
+```{r}
+pml_training = read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+pml_testing = read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+
+Lets remove variables `"X"`, `"raw_timestamp_part_1"`, `"raw_timestamp_part_2"`, `"cvtd_timestamp"`, `"num_window"` from the data. Timestamps would be useful if I did forecasting but in this project forecasting was not used.
+
+```{r}
+drops = c("X", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "num_window")
+pml_training = pml_training[,!(names(pml_training) %in% drops)]
+pml_testing = pml_testing[,!(names(pml_training) %in% drops)]
+```
+
+Now lets load `caret` library and remove variables that do not vary very much from the data.
+
+```{r}
+library(caret)
+zeroVar = nearZeroVar(pml_training)
+pml_training = pml_training[-zeroVar]
+pml_testing = pml_testing[-zeroVar]
+```
+
+Also lets remove columns that contain NAs because many columns have mostly NAs (can be seen with `summary(pml_training)`) and we cannot train a model with values we do not know.
+```{r}
+na_sums = colSums(is.na(pml_training))
+pml_training = pml_training[, na_sums == 0]
+pml_testing = pml_testing[, na_sums == 0]
+```
+
+Finally lets divide our training data into training set (60% of `pml-training`) and validation set (40% of `pml-training`) to later assess our model's out of sample error on validation set after training it on training set.
+```{r}
+inTrain = createDataPartition(pml_training$classe, p = 0.6)[[1]]
+training = pml_training[inTrain,]
+validation = pml_training[-inTrain,]
+```
+
+Now the training part. First I tried to use linear support vector machine, but the result was not very good. I also used PCA to reduce the number of predictors and thus speed up the training. The command used for training was
+```
+model <- train(training$classe ~ ., method="svmLinear", preProcess="pca", data=training)
+```
+but the result is already saved in file `linear_svm.rds` so we can load this object
+```{r}
+model = readRDS("linear_svm.rds")
+```
+
+Lets find its accuracy on validation set.
+```{r}
+confusionMatrix(validation$classe, predict(model, validation))$overall
+```
+
+As can be seen, the accuracy is `r round(confusionMatrix(validation$classe, predict(model, validation))$overall[1]*100)`% which is not very good. Seems like linear model is not very good for the job (I also tried `method="svmPoly"` but it has not finished training yet...)`. Lets try trees as they have better performance in nonlinear settings. More precisely, lets use random forest.
+```
+model <- train(training$classe~., method="rf", preProcess="pca", data=training)
+```
+
+Again, I have already trained the model and saved the result into `model.rds`.
+```{r}
+model = readRDS("model.rds")
+```
+
+Lets check out its accuracy on validation set.
+```{r}
+confusionMatrix(validation$classe, predict(model, validation))$overall
+```
+
+Yea `r round(confusionMatrix(validation$classe, predict(model, validation))$overall[1]*100)`%! Good enough for me. 
