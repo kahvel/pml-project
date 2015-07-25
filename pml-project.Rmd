@@ -15,7 +15,7 @@ Lets remove variables `"X"`, `"raw_timestamp_part_1"`, `"raw_timestamp_part_2"`,
 ```{r}
 drops = c("X", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "num_window")
 pml_training = pml_training[,!(names(pml_training) %in% drops)]
-pml_testing = pml_testing[,!(names(pml_training) %in% drops)]
+pml_testing = pml_testing[,!(names(pml_testing) %in% drops)]
 ```
 
 Now lets load `caret` library and remove variables that do not vary very much from the data.
@@ -45,7 +45,7 @@ Now the training part. First I tried to use linear support vector machine, but t
 ```
 model <- train(training$classe ~ ., method="svmLinear", preProcess="pca", data=training)
 ```
-but the result is already saved in file `linear_svm.rds` so we can load this object
+but the result is already saved in file `linear_svm.rds` so we can load this object instead of training again.
 ```{r}
 model = readRDS("linear_svm.rds")
 ```
@@ -55,7 +55,7 @@ Lets find its accuracy on validation set.
 confusionMatrix(validation$classe, predict(model, validation))$overall
 ```
 
-As can be seen, the accuracy is `r round(confusionMatrix(validation$classe, predict(model, validation))$overall[1]*100)`% which is not very good. Seems like linear model is not very good for the job (I also tried `method="svmPoly"` but it has not finished training yet...)`. Lets try trees as they have better performance in nonlinear settings. More precisely, lets use random forest.
+As can be seen, the accuracy is about `r round(confusionMatrix(validation$classe, predict(model, validation))$overall[1]*100)`% which is not very good. Seems like linear model is not very good for the job (I also tried `method="svmPoly"` but it has not finished training yet...). Lets try trees as they have better performance in nonlinear settings. More precisely, lets use random forest.
 ```
 model <- train(training$classe~., method="rf", preProcess="pca", data=training)
 ```
@@ -67,7 +67,19 @@ model = readRDS("model.rds")
 
 Lets check out its accuracy on validation set.
 ```{r}
-confusionMatrix(validation$classe, predict(model, validation))$overall
+confusion_matrix = confusionMatrix(validation$classe, predict(model, validation))
+confusion_matrix$overall
 ```
 
-Yea `r round(confusionMatrix(validation$classe, predict(model, validation))$overall[1]*100)`%! Good enough for me. 
+Yea about `r round(confusionMatrix(validation$classe, predict(model, validation))$overall[1]*100)`%! Good enough for me. 
+
+And lets also predict our 20 test cases.
+```{r}
+predict(model, pml_testing)
+```
+
+The third prediction is wrong, others are correct. So lets look up the confusion matrix
+```{r}
+confusion_matrix$table
+```
+As can be seen class `C` is most often confused with class `B` and as turns out, `B` is the correct class for third test case. Yay! (`method=svmPoly` has still not finished training :( )

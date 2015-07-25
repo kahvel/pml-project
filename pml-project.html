@@ -70,7 +70,7 @@ pml_testing = read.csv(&quot;pml-testing.csv&quot;, na.strings=c(&quot;NA&quot;,
 <p>Lets remove variables <code>&quot;X&quot;</code>, <code>&quot;raw_timestamp_part_1&quot;</code>, <code>&quot;raw_timestamp_part_2&quot;</code>, <code>&quot;cvtd_timestamp&quot;</code>, <code>&quot;num_window&quot;</code> from the data. Timestamps would be useful if I did forecasting but in this project forecasting was not used.</p>
 <pre class="r"><code>drops = c(&quot;X&quot;, &quot;raw_timestamp_part_1&quot;, &quot;raw_timestamp_part_2&quot;, &quot;cvtd_timestamp&quot;, &quot;num_window&quot;)
 pml_training = pml_training[,!(names(pml_training) %in% drops)]
-pml_testing = pml_testing[,!(names(pml_training) %in% drops)]</code></pre>
+pml_testing = pml_testing[,!(names(pml_testing) %in% drops)]</code></pre>
 <p>Now lets load <code>caret</code> library and remove variables that do not vary very much from the data.</p>
 <pre class="r"><code>library(caret)</code></pre>
 <pre><code>## Loading required package: lattice
@@ -88,29 +88,44 @@ training = pml_training[inTrain,]
 validation = pml_training[-inTrain,]</code></pre>
 <p>Now the training part. First I tried to use linear support vector machine, but the result was not very good. I also used PCA to reduce the number of predictors and thus speed up the training. The command used for training was</p>
 <pre><code>model &lt;- train(training$classe ~ ., method=&quot;svmLinear&quot;, preProcess=&quot;pca&quot;, data=training)</code></pre>
-<p>but the result is already saved in file <code>linear_svm.rds</code> so we can load this object</p>
+<p>but the result is already saved in file <code>linear_svm.rds</code> so we can load this object instead of training again.</p>
 <pre class="r"><code>model = readRDS(&quot;linear_svm.rds&quot;)</code></pre>
 <p>Lets find its accuracy on validation set.</p>
 <pre class="r"><code>confusionMatrix(validation$classe, predict(model, validation))$overall</code></pre>
 <pre><code>## Loading required package: kernlab</code></pre>
 <pre><code>##       Accuracy          Kappa  AccuracyLower  AccuracyUpper   AccuracyNull 
-##   5.678053e-01   4.510738e-01   5.567567e-01   5.788034e-01   3.248789e-01 
+##   5.750701e-01   4.607281e-01   5.640420e-01   5.860424e-01   3.199082e-01 
 ## AccuracyPValue  McnemarPValue 
-##   0.000000e+00  1.249046e-106</code></pre>
-<p>As can be seen, the accuracy is 57% which is not very good. Seems like linear model is not very good for the job (I also tried <code>method=&quot;svmPoly&quot;</code> but it has not finished training yet…)`. Lets try trees as they have better performance in nonlinear settings. More precisely, lets use random forest.</p>
+##   0.000000e+00  1.912512e-109</code></pre>
+<p>As can be seen, the accuracy is about 58% which is not very good. Seems like linear model is not very good for the job (I also tried <code>method=&quot;svmPoly&quot;</code> but it has not finished training yet…). Lets try trees as they have better performance in nonlinear settings. More precisely, lets use random forest.</p>
 <pre><code>model &lt;- train(training$classe~., method=&quot;rf&quot;, preProcess=&quot;pca&quot;, data=training)</code></pre>
 <p>Again, I have already trained the model and saved the result into <code>model.rds</code>.</p>
 <pre class="r"><code>model = readRDS(&quot;model.rds&quot;)</code></pre>
 <p>Lets check out its accuracy on validation set.</p>
-<pre class="r"><code>confusionMatrix(validation$classe, predict(model, validation))$overall</code></pre>
+<pre class="r"><code>confusion_matrix = confusionMatrix(validation$classe, predict(model, validation))</code></pre>
 <pre><code>## Loading required package: randomForest
 ## randomForest 4.6-10
 ## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre class="r"><code>confusion_matrix$overall</code></pre>
 <pre><code>##       Accuracy          Kappa  AccuracyLower  AccuracyUpper   AccuracyNull 
-##   9.884017e-01   9.853263e-01   9.857787e-01   9.906518e-01   2.861331e-01 
+##   9.868723e-01   9.833920e-01   9.841011e-01   9.892724e-01   2.856232e-01 
 ## AccuracyPValue  McnemarPValue 
-##   0.000000e+00   1.551933e-05</code></pre>
-<p>Yea 99%! Good enough for me.</p>
+##   0.000000e+00   8.904586e-05</code></pre>
+<p>Yea about 99%! Good enough for me.</p>
+<p>And lets also predict our 20 test cases.</p>
+<pre class="r"><code>predict(model, pml_testing)</code></pre>
+<pre><code>##  [1] B A C A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+<p>The third prediction is wrong, others are correct. So lets look up the confusion matrix</p>
+<pre class="r"><code>confusion_matrix$table</code></pre>
+<pre><code>##           Reference
+## Prediction    A    B    C    D    E
+##          A 2224    2    1    4    1
+##          B   12 1494   11    0    1
+##          C    4   19 1339    5    1
+##          D    1    1   24 1259    1
+##          E    0    9    4    2 1427</code></pre>
+<p>As can be seen class <code>C</code> is most often confused with class <code>B</code> and as turns out, <code>B</code> is the correct class for third test case. Yay! (<code>method=svmPoly</code> has still not finished training :( )</p>
 </div>
 
 
