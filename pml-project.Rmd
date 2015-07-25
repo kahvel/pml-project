@@ -83,3 +83,5 @@ The third prediction is wrong, others are correct. So lets look up the confusion
 confusion_matrix$table
 ```
 As can be seen class `C` is most often confused with class `B` and as turns out, `B` is the correct class for third test case. Yay! (`method=svmPoly` has still not finished training :( )
+
+Want to read something more interesting? Check out my [brain-computer interface](https://github.com/kahvel/VEP-BCI) written as a practical part of my Bachelor's thesis :)
